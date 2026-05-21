@@ -20,7 +20,7 @@ public class SistemGOR {
     private final ArrayList<Transaksi> riwayatTransaksi = new ArrayList<>();
     private final Set<String> memberCheckedInHariIni = new HashSet<>();
     
-    // Inisialisasi Store
+    // Inisialisasi Store File I/O
     private final DataMemberStore memberStore = new DataMemberStore(FILE_MEMBER);
     private final JadwalStore jadwalStore = new JadwalStore(); 
     
@@ -35,6 +35,7 @@ public class SistemGOR {
             this.nama = nama;
             this.nomorLapangan = nomorLapangan;
         }
+
         private String label() {
             return nama + " (Lapangan " + nomorLapangan + ")";
         }
@@ -66,8 +67,10 @@ public class SistemGOR {
                 default:
                     System.out.println("\nPilihan tidak valid. Silakan pilih 1-6.");
             }
+
             if (isRunning) pause();
         }
+
         memberStore.save(databaseMember);
     }
 
@@ -87,7 +90,7 @@ public class SistemGOR {
         }
         System.out.println("[INFO] 8 Lapangan Siap Digunakan.");
         
-        // Memuat backup jadwal dari TXT jika sebelumnya PC mati/restart
+        // Memuat backup jadwal dari TXT (Fitur Anti-Amnesia saat PC Restart)
         jadwalStore.loadJadwal(daftarLapangan);
         System.out.println("[INFO] Data Jadwal Lapangan Berhasil Dimuat.");
 
@@ -101,7 +104,7 @@ public class SistemGOR {
         System.out.println("-----------------------------------------------------\n");
     }
 
-    // Auto get hari dari sistem Windows/Mac secara real-time
+    // Mengambil hari secara otomatis dari sistem operasi (Fitur Anti Time-Freeze)
     private String getHariIni() {
         return LocalDate.now().getDayOfWeek().getDisplayName(TextStyle.FULL, new Locale("id", "ID"));
     }
@@ -208,22 +211,23 @@ public class SistemGOR {
                         if (p instanceof PelangganBiasa) {
                             PelangganBiasa pb = (PelangganBiasa) p;
                             if (pb.getIsBooking()) {
-                                System.out.printf("\n[INFO] Booking %s dibatalkan (DP Rp %,.0f).%n", p.getNama(), pb.hitungDP());
+                                System.out.printf("\n[INFO] Booking %s di Lapangan %d dibatalkan.%n", p.getNama(), lap.getNomor());
+                                System.out.printf("[INFO] DP sebesar Rp %,.0f dapat dikembalikan/dihanguskan.%n", pb.hitungDP());
                             } else {
-                                System.out.printf("\n[INFO] Jadwal %s dihapus.%n", p.getNama());
+                                System.out.printf("\n[INFO] Jadwal %s di Lapangan %d dihapus.%n", p.getNama(), lap.getNomor());
                             }
                         } else if (p instanceof Member) {
                             System.out.printf("\n[INFO] Member %s dibatalkan. Sesi tidak dikembalikan.%n", p.getNama());
                         }
                         lap.getJadwal().remove(i);
-                        jadwalStore.saveJadwal(daftarLapangan); // AUTO SAVE SETELAH DIHAPUS
+                        jadwalStore.saveJadwal(daftarLapangan); // AUTO SAVE JADWAL SETELAH DIHAPUS
                         found = true;
                         break;
                     }
                 }
                 if (found) break;
             }
-            if (!found) System.out.println("[ERROR] Nama tidak ditemukan.");
+            if (!found) System.out.println("[ERROR] Nama tidak ditemukan di jadwal manapun.");
         }
     }
 
@@ -231,65 +235,97 @@ public class SistemGOR {
         System.out.println("\n--- TRANSAKSI PELANGGAN BIASA ---");
         System.out.print("Nama Penanggung Jawab : ");
         String nama = scanner.nextLine().trim();
-        if (nama.isEmpty()) return;
+
+        if (nama.isEmpty()) {
+            System.out.println("\nNama tidak boleh kosong!");
+            return;
+        }
 
         System.out.print("Lama Sewa (Jam)       : ");
         int lama = inputInt();
-        if (lama <= 0) return;
+        if (lama <= 0) {
+            System.out.println("\nTRANSAKSI DITOLAK! Lama sewa harus lebih dari 0 jam.");
+            return;
+        }
 
         System.out.print("Jenis (1. Booking / 2. Datang Langsung): ");
         int jenis = inputInt();
+        if (jenis != 1 && jenis != 2) {
+            System.out.println("\nJenis transaksi tidak valid!");
+            return;
+        }
+
         boolean isBooking = (jenis == 1);
-        
+        boolean jamValidDanTersedia = false;
         int jam = 0;
         ArrayList<Integer> listLapanganTersedia = new ArrayList<>();
-        boolean jamValidDanTersedia = false;
 
         while (!jamValidDanTersedia) {
+            System.out.println("\n[INFO] GOR Buka: 07.00 - 22.00 WIB");
             System.out.print("Rencana Main Jam (Format 24 Jam, cth: 19) [Ketik 0 utk Batal]: ");
             jam = inputInt();
-            if (jam == 0) return;
 
-            if ((jam + lama) > JAM_TUTUP || jam < JAM_BUKA) {
-                System.out.println("\n[DITOLAK] GOR beroperasi jam 07.00 - 22.00 WIB.");
+            if (jam == 0) {
+                System.out.println("\nTRANSAKSI DIBATALKAN oleh pengguna.");
+                return;
+            }
+
+            if ((jam + lama) > JAM_TUTUP) {
+                System.out.printf("\n[DITOLAK] GOR sudah tutup pukul 22.00 WIB.%n");
+                continue;
+            } else if (jam < JAM_BUKA) {
+                System.out.printf("\n[DITOLAK] GOR baru buka mulai pukul 07.00 WIB.%n");
                 continue;
             }
 
             listLapanganTersedia.clear();
             for (Lapangan lap : daftarLapangan) {
-                if (lap.isTersedia(jam, lama)) listLapanganTersedia.add(lap.getNomor());
+                if (lap.isTersedia(jam, lama)) {
+                    listLapanganTersedia.add(lap.getNomor());
+                }
             }
 
             if (listLapanganTersedia.isEmpty()) {
-                System.out.println("\n[PENUH] Semua lapangan penuh di jam tersebut.");
+                System.out.printf("\n[MOHON MAAF] Semua lapangan sudah penuh pada jam tersebut.%n");
             } else {
                 jamValidDanTersedia = true;
             }
         }
 
         PelangganBiasa pBiasa = new PelangganBiasa(nama, jam, lama, isBooking);
-        System.out.printf("\nTotal Biaya : Rp %,.0f%n", pBiasa.hitungBiaya());
+
+        System.out.printf("Total Biaya : Rp %,.0f (30rb/jam)%n", pBiasa.hitungBiaya());
+        if (isBooking) {
+            System.out.println("Status      : BOOKING (Wajib DP 50%)");
+            System.out.printf("Tagihan DP  : Rp %,.0f%n", pBiasa.hitungDP());
+        }
 
         while (true) {
-            System.out.print("\nPilih Lapangan " + listLapanganTersedia + " (0 = Batal): ");
+            System.out.print("\nPilih Nomor Lapangan " + listLapanganTersedia + " (Atau ketik 0 untuk Batal): ");
             int noLap = inputInt();
-            if (noLap == 0) return;
+
+            if (noLap == 0) {
+                System.out.println("\nTRANSAKSI DIBATALKAN oleh pengguna.");
+                return;
+            }
 
             if (listLapanganTersedia.contains(noLap)) {
                 Lapangan lapDipilih = daftarLapangan.get(noLap - 1);
                 lapDipilih.tambahJadwal(pBiasa);
-                jadwalStore.saveJadwal(daftarLapangan); // AUTO SAVE JADWAL BARU
+                jadwalStore.saveJadwal(daftarLapangan); // AUTO SAVE TRANSAKSI BARU
 
                 double bayar = isBooking ? pBiasa.hitungDP() : pBiasa.hitungBiaya();
-                System.out.printf("\n[INFO] Transaksi Sukses! Lapangan %d disewa.%n", noLap);
+                String ket = isBooking ? "DP Booking 50%" : "Lunas Datang Langsung";
+
+                System.out.printf("\n[INFO] Pembayaran Rp %,.0f diterima. Lapangan %d disewa.%n", bayar, noLap);
 
                 String jadwal = String.format("%02d.00 - %02d.00 WIB", jam, jam + lama);
-                Transaksi trx = new Transaksi(nama, "Pelanggan Biasa", noLap, jadwal, bayar, (isBooking ? "DP 50%" : "Lunas"));
+                Transaksi trx = new Transaksi(nama, "Pelanggan Biasa", noLap, jadwal, bayar, ket);
                 riwayatTransaksi.add(trx);
                 trx.tampilkanStruk();
                 break;
             } else {
-                System.out.println("[ERROR] Lapangan tidak valid!");
+                System.out.println("\n[ERROR] Nomor lapangan tidak valid!");
             }
         }
     }
@@ -323,24 +359,51 @@ public class SistemGOR {
         System.out.print("Jam Main Tetap  : ");
         int jam = inputInt();
 
-        ArrayList<Integer> lapTersedia = new ArrayList<>();
-        for (Lapangan lap : daftarLapangan) {
-            if (lap.isTersedia(jam, 3)) lapTersedia.add(lap.getNomor());
+        if (jam < JAM_BUKA || (jam + 3) > JAM_TUTUP) {
+            System.out.println("\nPENDAFTARAN GAGAL! Jadwal main (3 Jam) melewati jam operasional.");
+            return;
         }
 
-        if (lapTersedia.isEmpty()) {
+        ArrayList<Integer> lapanganTersedia = new ArrayList<>();
+        for (Lapangan lap : daftarLapangan) {
+            if (lap.isTersedia(jam, 3)) lapanganTersedia.add(lap.getNomor());
+        }
+
+        if (lapanganTersedia.isEmpty()) {
             System.out.println("\n[GAGAL] Lapangan penuh di jam tersebut.");
             return;
         }
 
-        System.out.print("\nPilih Lapangan Tetap " + lapTersedia + ": ");
+        System.out.print("\nPilih Lapangan Tetap " + lapanganTersedia + " (0 = Batal): ");
         int noLap = inputInt();
+        if (noLap == 0) return;
 
-        if (lapTersedia.contains(noLap)) {
+        if (lapanganTersedia.contains(noLap)) {
             Member m = new Member(nama, generateMemberId(), hari, jam, noLap);
             databaseMember.add(m);
             memberStore.save(databaseMember);
             System.out.println("\n[INFO] Member " + m.getIdMember() + " Berhasil Terdaftar!");
+
+            // FITUR: OPSI LANGSUNG MAIN HARI INI
+            System.out.print("\nApakah member ingin langsung menggunakan 1 sesi hari ini? (Y/N): ");
+            String pakaiSekarang = scanner.nextLine().trim();
+            
+            if (pakaiSekarang.equalsIgnoreCase("Y")) {
+                Lapangan lapTerpilih = daftarLapangan.get(noLap - 1);
+                
+                if (lapTerpilih.isTersedia(jam, 3)) {
+                    m.gunakanSesi();
+                    lapTerpilih.tambahJadwal(m);
+                    memberCheckedInHariIni.add(m.getIdMember());
+                    
+                    memberStore.save(databaseMember);
+                    jadwalStore.saveJadwal(daftarLapangan); 
+                    
+                    System.out.println("[SUKSES] Sesi hari ini digunakan! Sisa sesi: " + m.getSisaSesi());
+                } else {
+                    System.out.println("[GAGAL] Lapangan sedang dipakai hari ini. Tidak bisa langsung main.");
+                }
+            }
         }
     }
 
@@ -355,10 +418,12 @@ public class SistemGOR {
             return;
         }
 
-        if (!m.getHariTetap().equalsIgnoreCase(getHariIni())) {
-            System.out.println("\n[ACCESS DENIED] Hari ini " + getHariIni() + ". Jadwal Anda hari " + m.getHariTetap());
-            return;
+        // FITUR: SESI FLEKSIBEL
+        boolean isJadwalTetap = m.getHariTetap().equalsIgnoreCase(getHariIni());
+        if (!isJadwalTetap) {
+            System.out.println("\n[INFO] Anda check-in di luar jadwal tetap (" + m.getHariTetap() + "). Sesi fleksibel akan digunakan.");
         }
+
         if (memberCheckedInHariIni.contains(m.getIdMember())) {
             System.out.println("\n[ACCESS DENIED] Sudah check-in hari ini.");
             return;
@@ -376,24 +441,24 @@ public class SistemGOR {
 
         m.gunakanSesi();
         memberStore.save(databaseMember);
-
         lapMember.tambahJadwal(m);
         memberCheckedInHariIni.add(m.getIdMember());
-        jadwalStore.saveJadwal(daftarLapangan); // AUTO SAVE CHECKIN MEMBER
+        jadwalStore.saveJadwal(daftarLapangan); // AUTO SAVE JADWAL
 
         System.out.println("\n[INFO] Check-in berhasil!");
+        System.out.println("[INFO] Sisa sesi main Anda bulan ini: " + m.getSisaSesi() + " Sesi.");
     }
 
     private void tampilkanSemuaMember() {
         System.out.println("\n--- DAFTAR SEMUA MEMBER ---");
         for (Member m : databaseMember) {
-            System.out.printf("%s | %s | %s | %02d.00 | Sisa: %d%n",
-                    m.getIdMember(), m.getNama(), m.getHariTetap(), m.getJamMulai(), m.getSisaSesi());
+            System.out.printf("%s | %s | %s | %02d.00 | Lap: %d | Sisa: %d%n",
+                    m.getIdMember(), m.getNama(), m.getHariTetap(), m.getJamMulai(), m.getNomorLapangan(), m.getSisaSesi());
         }
     }
 
     private void hapusMember() {
-        System.out.print("\nMasukkan ID Member dihapus: ");
+        System.out.print("\nMasukkan ID Member yang dihapus: ");
         String id = scanner.nextLine().trim();
         Member target = cariMemberById(id);
         
@@ -404,25 +469,64 @@ public class SistemGOR {
                 lap.hapusJadwalMemberById(target.getIdMember());
             }
             memberStore.save(databaseMember);
-            jadwalStore.saveJadwal(daftarLapangan); // UPDATE JADWAL
+            jadwalStore.saveJadwal(daftarLapangan);
             System.out.println("[INFO] Member dihapus.");
         }
     }
 
     private void resetSesiMember() {
-        for (Member m : databaseMember) m.resetSesi();
-        memberStore.save(databaseMember);
-        System.out.println("\n[INFO] Sesi member direset.");
+        System.out.print("\nYakin reset semua sesi member? (1. Ya): ");
+        if (inputInt() == 1) {
+            for (Member m : databaseMember) m.resetSesi();
+            memberStore.save(databaseMember);
+            System.out.println("[INFO] Sesi direset.");
+        }
     }
 
     private void menuToko() {
-        // (Isinya sama seperti kode awal kamu)
-        System.out.println("\n--- TOKO DIBUKA (LOGIC SAMA SEPERTI SEBELUMNYA) ---");
-        // ... Logika Toko tetap aman.
+        System.out.println("\n--- KASIR TOKO BADMINTON ---");
+        System.out.println("Daftar Barang Tersedia:");
+        for (int i = 0; i < daftarBarang.size(); i++) {
+            Barang b = daftarBarang.get(i);
+            System.out.printf("%d. %s (Rp %,.0f/pcs) - Stok: %d%n", (i + 1), b.getNama(), b.getHarga(), b.getStok());
+        }
+
+        System.out.print("\nPilih Barang (1-" + daftarBarang.size() + ") [0 utk batal]: ");
+        int pilBarang = inputInt();
+        if (pilBarang == 0 || pilBarang > daftarBarang.size()) return;
+
+        System.out.print("Jumlah Beli : ");
+        int qty = inputInt();
+
+        Barang brg = daftarBarang.get(pilBarang - 1);
+        if (brg.getStok() >= qty) {
+            double total = brg.getHarga() * qty;
+            brg.kurangiStok(qty);
+            Transaksi trx = new Transaksi("Tamu", "Toko", 0, brg.getNama() + " x" + qty, total, "Lunas");
+            riwayatTransaksi.add(trx);
+            System.out.printf("\n[SUKSES] Total Belanja: Rp %,.0f%n", total);
+        } else {
+            System.out.println("\n[GAGAL] Stok tidak mencukupi.");
+        }
     }
 
     private void menuLaporanKeuangan() {
-        // (Isinya sama seperti kode awal kamu)
-        System.out.println("\n--- MENU LAPORAN (LOGIC SAMA SEPERTI SEBELUMNYA) ---");
+        System.out.println("\n--- LAPORAN KEUANGAN & RIWAYAT ---");
+        System.out.println("1. Riwayat Transaksi Hari Ini");
+        System.out.println("2. Rekap Pendapatan");
+        System.out.print("Pilih: ");
+        int pil = inputInt();
+
+        if (pil == 1) {
+            System.out.println("\n--- RIWAYAT TRANSAKSI ---");
+            for (Transaksi t : riwayatTransaksi) {
+                System.out.printf("| %-8s | %-15s | %-14s | Rp %,.0f |%n", 
+                        t.getIdTransaksi(), t.getNamaPelanggan(), t.getJenis(), t.getTotalBayar());
+            }
+        } else if (pil == 2) {
+            double total = 0;
+            for (Transaksi t : riwayatTransaksi) total += t.getTotalBayar();
+            System.out.printf("\n[TOTAL PENDAPATAN HARI INI] Rp %,.0f%n", total);
+        }
     }
 }

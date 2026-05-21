@@ -1,0 +1,5 @@
+1,dwiki,Biasa,8,3,false
+1,iqbal,Member,14,3,false
+1,dafi,Biasa,12,2,false
+2,razka,Biasa,7,4,false
+2,fi,Biasa,12,2,true

@@ -53,8 +53,8 @@ public class Transaksi {
         System.out.printf("| Lapangan     : %-34s |%n", nomorLapangan == 0 ? "-" : "Lapangan " + nomorLapangan);
         System.out.printf("| Jadwal/Item  : %-34s |%n", jadwalMain);
         System.out.println("+---------------------------------------------------+");
-        System.out.printf("| %-25s : %16s |%n", "Total Bayar",
-                totalBayar == 0 ? "FREE (Member)" : String.format("Rp %,.0f", totalBayar));
+        System.out.printf("| Total Bayar  : %-34s |%n", 
+        totalBayar == 0 ? "FREE (Member)" : String.format("Rp %,.0f", totalBayar));
         System.out.printf("| Keterangan   : %-34s |%n", keterangan);
         System.out.println("+===================================================+");
         System.out.println("|     Terima kasih telah bertransaksi di GOR        |");

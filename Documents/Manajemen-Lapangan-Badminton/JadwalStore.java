@@ -17,9 +17,10 @@ public class JadwalStore {
                         isBooking = ((PelangganBiasa) p).getIsBooking();
                     }
                     
-                    // Format TXT: NoLap,Nama,Jenis,JamMulai,Durasi,StatusBooking
+                    // Format TXT BARU: NoLap,Nama,Hari,Jenis,JamMulai,Durasi,StatusBooking
                     writer.println(lap.getNomor() + "," +
                                    p.getNama() + "," +
+                                   p.getHariMain() + "," + // <-- Data Hari disimpan di sini
                                    jenis + "," +
                                    p.getJamMulai() + "," +
                                    durasi + "," + 
@@ -44,19 +45,21 @@ public class JadwalStore {
                     String[] data = line.split(",");
                     int noLap = Integer.parseInt(data[0]);
                     String nama = data[1];
-                    String jenis = data[2];
-                    int jamMulai = Integer.parseInt(data[3]);
-                    int durasi = Integer.parseInt(data[4]);
-                    boolean isBooking = Boolean.parseBoolean(data[5]);
+                    String hari = data[2]; // <-- Tangkap Data Hari di index 2
+                    String jenis = data[3];
+                    int jamMulai = Integer.parseInt(data[4]);
+                    int durasi = Integer.parseInt(data[5]);
+                    boolean isBooking = Boolean.parseBoolean(data[6]);
 
                     for (Lapangan lap : daftarLapangan) {
                         if (lap.getNomor() == noLap) {
                             if (jenis.equalsIgnoreCase("Member")) {
-                                // Bikin objek dummy buat ngisi slot jadwal di RAM
-                                Member m = new Member(nama, "REF-"+nama, "Dinamis", jamMulai, noLap);
+                                // Masukkan 'hari' ke objek Member
+                                Member m = new Member(nama, "REF-"+nama, hari, jamMulai, noLap);
                                 lap.tambahJadwal(m);
                             } else {
-                                PelangganBiasa pb = new PelangganBiasa(nama, jamMulai, durasi, isBooking);
+                                // Masukkan 'hari' ke objek PelangganBiasa
+                                PelangganBiasa pb = new PelangganBiasa(nama, hari, jamMulai, durasi, isBooking);
                                 lap.tambahJadwal(pb);
                             }
                             break;

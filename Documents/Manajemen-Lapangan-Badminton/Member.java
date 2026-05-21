@@ -7,8 +7,9 @@ public class Member extends Pelanggan {
     private int sisaSesi;
     private final int nomorLapangan;
 
-    public Member(String nama, String idMember, String hariTetap, int jamMulai, int nomorLapangan) {
-        super(nama, jamMulai, LAMA_MAIN_FIX, "Member");
+   public Member(String nama, String idMember, String hariTetap, int jamMulai, int nomorLapangan) {
+        // Masukkan hariTetap ke posisi parameter hariMain di super()
+        super(nama, hariTetap, jamMulai, LAMA_MAIN_FIX, "Member"); 
         this.idMember = idMember;
         this.hariTetap = hariTetap;
         this.nomorLapangan = nomorLapangan;

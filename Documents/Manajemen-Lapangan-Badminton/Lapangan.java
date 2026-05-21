@@ -18,18 +18,36 @@ public class Lapangan {
         return jadwalBooking;
     }
 
-   public boolean isTersedia(int jamRequest, int lamaRequest) {
+   public boolean isTersedia(String hariRequest, int jamRequest, int lamaRequest) {
         int selesaiRequest = jamRequest + lamaRequest;
         for (Pelanggan p : jadwalBooking) {
-            if ((jamRequest >= p.getJamMulai() && jamRequest < p.getJamSelesai())
-                    || (selesaiRequest > p.getJamMulai() && selesaiRequest <= p.getJamSelesai())
-                    || (jamRequest <= p.getJamMulai() && selesaiRequest >= p.getJamSelesai())) {
-                return false;
+          
+            if (p.getHariMain().equalsIgnoreCase(hariRequest)) {
+               
+                if ((jamRequest >= p.getJamMulai() && jamRequest < p.getJamSelesai())
+                        || (selesaiRequest > p.getJamMulai() && selesaiRequest <= p.getJamSelesai())
+                        || (jamRequest <= p.getJamMulai() && selesaiRequest >= p.getJamSelesai())) {
+                    return false;
+                }
             }
         }
         return true;
     }
-
+    
+    public boolean isTersediaKhususMember(String hariRequest, int jamRequest, int lamaRequest) {
+        int selesaiRequest = jamRequest + lamaRequest;
+        for (Pelanggan p : jadwalBooking) {
+            // HANYA CEK BENTROK JIKA PELANGGAN TERSEBUT ADALAH MEMBER (JADWAL TETAP)
+            if (p instanceof Member && p.getHariMain().equalsIgnoreCase(hariRequest)) {
+                if ((jamRequest >= p.getJamMulai() && jamRequest < p.getJamSelesai())
+                        || (selesaiRequest > p.getJamMulai() && selesaiRequest <= p.getJamSelesai())
+                        || (jamRequest <= p.getJamMulai() && selesaiRequest >= p.getJamSelesai())) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
     public void tambahJadwal(Pelanggan p) {
         jadwalBooking.add(p);
     }

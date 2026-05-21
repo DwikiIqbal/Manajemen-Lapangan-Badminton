@@ -1,0 +1,2 @@
+1,qw,sabtu,Biasa,14,3,true
+1,re,sabtu,Member,14,3,false

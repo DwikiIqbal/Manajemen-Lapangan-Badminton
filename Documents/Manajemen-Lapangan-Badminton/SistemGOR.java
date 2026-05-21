@@ -1,5 +1,6 @@
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Date;
@@ -241,6 +242,15 @@ public class SistemGOR {
             return;
         }
 
+    
+        System.out.print("Hari Main (cth: Senin)  : ");
+        String hari = scanner.nextLine().trim();
+        if (hari.isEmpty()) {
+            System.out.println("\nHari tidak boleh kosong!");
+            return;
+        }
+       
+
         System.out.print("Lama Sewa (Jam)       : ");
         int lama = inputInt();
         if (lama <= 0) {
@@ -256,6 +266,14 @@ public class SistemGOR {
         }
 
         boolean isBooking = (jenis == 1);
+        
+        int jamSekarangOtomatis = LocalTime.now().getHour();
+        if (!isBooking && jamSekarangOtomatis >= JAM_TUTUP) {
+            System.out.println("\n[MOHON MAAF] GOR sudah tutup untuk hari ini (Batas " + JAM_TUTUP + ".00 WIB).");
+            System.out.println("Transaksi 'Datang Langsung' dibatalkan. Silakan datang besok atau gunakan sistem Booking.");
+            return; 
+        }
+
         boolean jamValidDanTersedia = false;
         int jam = 0;
         ArrayList<Integer> listLapanganTersedia = new ArrayList<>();
@@ -270,19 +288,26 @@ public class SistemGOR {
                 return;
             }
 
+            int jamSekarang = LocalTime.now().getHour();
+
             if ((jam + lama) > JAM_TUTUP) {
                 System.out.printf("\n[DITOLAK] GOR sudah tutup pukul 22.00 WIB.%n");
                 continue;
             } else if (jam < JAM_BUKA) {
                 System.out.printf("\n[DITOLAK] GOR baru buka mulai pukul 07.00 WIB.%n");
                 continue;
+            } else if (!isBooking && jam < jamSekarang) {
+                System.out.printf("\n[DITOLAK] Waktu sudah lewat! Sekarang sudah jam %02d.00 WIB.%n", jamSekarang);
+                continue;
             }
 
             listLapanganTersedia.clear();
             for (Lapangan lap : daftarLapangan) {
-                if (lap.isTersedia(jam, lama)) {
+               
+                if (lap.isTersedia(hari, jam, lama)) {
                     listLapanganTersedia.add(lap.getNomor());
                 }
+                
             }
 
             if (listLapanganTersedia.isEmpty()) {
@@ -290,9 +315,12 @@ public class SistemGOR {
             } else {
                 jamValidDanTersedia = true;
             }
-        }
+        } 
 
-        PelangganBiasa pBiasa = new PelangganBiasa(nama, jam, lama, isBooking);
+      
+        PelangganBiasa pBiasa = new PelangganBiasa(nama, hari, jam, lama, isBooking);
+       
+        
 
         System.out.printf("Total Biaya : Rp %,.0f (30rb/jam)%n", pBiasa.hitungBiaya());
         if (isBooking) {
@@ -366,7 +394,8 @@ public class SistemGOR {
 
         ArrayList<Integer> lapanganTersedia = new ArrayList<>();
         for (Lapangan lap : daftarLapangan) {
-            if (lap.isTersedia(jam, 3)) lapanganTersedia.add(lap.getNomor());
+            
+            if (lap.isTersediaKhususMember(hari, jam, 3)) lapanganTersedia.add(lap.getNomor());
         }
 
         if (lapanganTersedia.isEmpty()) {
@@ -390,8 +419,13 @@ public class SistemGOR {
             
             if (pakaiSekarang.equalsIgnoreCase("Y")) {
                 Lapangan lapTerpilih = daftarLapangan.get(noLap - 1);
+                int jamSekarang = LocalTime.now().getHour();
                 
-                if (lapTerpilih.isTersedia(jam, 3)) {
+                if (jam < jamSekarang) {
+                    System.out.println("[GAGAL] Waktu sudah lewat! Tidak bisa main sekarang karena sudah jam " + jamSekarang + ".00 WIB.");
+                } 
+                
+                else if (lapTerpilih.isTersedia(getHariIni(), jam, 3)) { 
                     m.gunakanSesi();
                     lapTerpilih.tambahJadwal(m);
                     memberCheckedInHariIni.add(m.getIdMember());
@@ -399,9 +433,9 @@ public class SistemGOR {
                     memberStore.save(databaseMember);
                     jadwalStore.saveJadwal(daftarLapangan); 
                     
-                    System.out.println("[SUKSES] Sesi hari ini digunakan! Sisa sesi: " + m.getSisaSesi());
+                    System.out.println("[SUKSES] Sesi hari ini (" + getHariIni() + ") digunakan! Sisa sesi: " + m.getSisaSesi());
                 } else {
-                    System.out.println("[GAGAL] Lapangan sedang dipakai hari ini. Tidak bisa langsung main.");
+                    System.out.println("[GAGAL] Lapangan " + noLap + " sedang dipakai orang lain hari ini. Namun, Jadwal Tetap Anda dipastikan AMAN untuk hari " + hari + ".");
                 }
             }
         }
@@ -434,7 +468,7 @@ public class SistemGOR {
         }
 
         Lapangan lapMember = daftarLapangan.get(m.getNomorLapangan() - 1);
-        if (!lapMember.isTersedia(m.getJamMulai(), m.getLamaMain())) {
+        if (!lapMember.isTersedia(getHariIni(), m.getJamMulai(), m.getLamaMain())) {
             System.out.println("\n[WARNING] Lapangan sedang dipakai. Harap lapor Admin.");
             return;
         }

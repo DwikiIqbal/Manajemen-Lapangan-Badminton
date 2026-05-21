@@ -2,8 +2,9 @@ public class PelangganBiasa extends Pelanggan {
     private static final double HARGA_PER_JAM = 30000;
     private final boolean isBooking;
 
-    public PelangganBiasa(String nama, int jamMulai, int lamaMain, boolean isBooking) {
-        super(nama, jamMulai, lamaMain, "Pelanggan Biasa");
+    // Tambahkan String hariMain di sini
+    public PelangganBiasa(String nama, String hariMain, int jamMulai, int lamaMain, boolean isBooking) {
+        super(nama, hariMain, jamMulai, lamaMain, "Pelanggan Biasa"); 
         this.isBooking = isBooking;
     }
 

@@ -1,0 +1,3 @@
+MEM-001,wqeqw,Jumat,13,4,1
+MEM-002,wqwreq,Sabtu,13,4,1
+MEM-003,qweqw,Jumat,13,4,2

@@ -18,12 +18,12 @@ public class Lapangan {
         return jadwalBooking;
     }
 
-   public boolean isTersedia(String hariRequest, int jamRequest, int lamaRequest) {
+   public boolean isTersedia(String tanggalOrHariRequest, int jamRequest, int lamaRequest) {
         int selesaiRequest = jamRequest + lamaRequest;
         for (Pelanggan p : jadwalBooking) {
-          
-            if (p.getHariMain().equalsIgnoreCase(hariRequest)) {
-               
+            // BUG FIX 1: Cek apakah Tanggal atau Harinya sama
+            if (p.getHariMain().equalsIgnoreCase(tanggalOrHariRequest)) {
+                // Jika sama, baru cek apakah jamnya bertabrakan
                 if ((jamRequest >= p.getJamMulai() && jamRequest < p.getJamSelesai())
                         || (selesaiRequest > p.getJamMulai() && selesaiRequest <= p.getJamSelesai())
                         || (jamRequest <= p.getJamMulai() && selesaiRequest >= p.getJamSelesai())) {

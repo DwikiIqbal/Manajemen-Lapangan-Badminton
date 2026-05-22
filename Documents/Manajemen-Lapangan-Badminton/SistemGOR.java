@@ -8,6 +8,8 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Scanner;
 import java.util.Set;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 public class SistemGOR {
     private static final int JAM_BUKA = 7;
@@ -187,9 +189,9 @@ public class SistemGOR {
                 for (int i = 0; i < lap.getJadwal().size(); i++) {
                     Pelanggan p = lap.getJadwal().get(i);
                     if (i > 0) System.out.print("               ");
-                    System.out.printf("[%s] - %s (%02d.00 - %02d.00) | %s%n",
+                    System.out.printf("[%s] - %s (%02d.00 - %02d.00) Hari: %s | %s%n",
                             p.getStatusTransaksi(), p.getNama(),
-                            p.getJamMulai(), p.getJamSelesai(), p.getJenisPelanggan());
+                            p.getJamMulai(), p.getJamSelesai(), p.getHariMain(), p.getJenisPelanggan());
                 }
             }
         }
@@ -242,15 +244,6 @@ public class SistemGOR {
             return;
         }
 
-    
-        System.out.print("Hari Main (cth: Senin)  : ");
-        String hari = scanner.nextLine().trim();
-        if (hari.isEmpty()) {
-            System.out.println("\nHari tidak boleh kosong!");
-            return;
-        }
-       
-
         System.out.print("Lama Sewa (Jam)       : ");
         int lama = inputInt();
         if (lama <= 0) {
@@ -266,7 +259,48 @@ public class SistemGOR {
         }
 
         boolean isBooking = (jenis == 1);
-        
+        String hari = "";
+
+        // ==========================================================
+        // UPGRADE: INPUT TANGGAL MAIN DENGAN LOGIKA KALENDER ASLI
+        // ==========================================================
+        if (isBooking) {
+            boolean tanggalValid = false;
+            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+            LocalDate hariIniLocal = LocalDate.now();
+
+            while (!tanggalValid) {
+                System.out.print("Tanggal Main (Format: DD-MM-YYYY) : ");
+                hari = scanner.nextLine().trim();
+
+                try {
+                    // Java akan otomatis mengecek apakah tanggal nyata atau kaleng-kaleng
+                    LocalDate tanggalInput = LocalDate.parse(hari, dateFormatter);
+                    
+                    if (tanggalInput.isBefore(hariIniLocal)) {
+                        // Tolak kalau booking untuk hari yang sudah lewat
+                        System.out.println("[DITOLAK] Tanggal sudah lewat! Hari ini adalah " + hariIniLocal.format(dateFormatter));
+                    } else if (tanggalInput.getYear() > hariIniLocal.getYear() + 1) {
+                        // Tolak kalau bookingnya kejauhan (lebih dari tahun depan)
+                        System.out.println("[DITOLAK] Booking terlalu jauh! Maksimal untuk tahun " + (hariIniLocal.getYear() + 1));
+                    } else {
+                        tanggalValid = true; // Input valid dan lolos!
+                    }
+                } catch (DateTimeParseException e) {
+                    // Kalau admin masukin 99-99-9999 atau huruf, bakal dilempar ke sini
+                    System.out.println("[ERROR] Format salah atau tanggal tidak valid di kalender!");
+                    System.out.println("Harap masukkan format yang benar (contoh: 25-05-2026).");
+                }
+            }
+        } else {
+            // Datang langsung otomatis pakai tanggal hari ini
+            hari = new SimpleDateFormat("dd-MM-yyyy").format(new Date());
+            System.out.println("Tanggal Main            : " + hari + " (Otomatis Hari Ini)");
+        }
+        // ==========================================================
+        // ==========================================================
+        // ==========================================================
+
         int jamSekarangOtomatis = LocalTime.now().getHour();
         if (!isBooking && jamSekarangOtomatis >= JAM_TUTUP) {
             System.out.println("\n[MOHON MAAF] GOR sudah tutup untuk hari ini (Batas " + JAM_TUTUP + ".00 WIB).");
@@ -382,8 +416,25 @@ public class SistemGOR {
         System.out.println("\n--- PENDAFTARAN MEMBER ---");
         System.out.print("Nama Member     : ");
         String nama = scanner.nextLine().trim();
-        System.out.print("Hari Main Tetap : ");
-        String hari = scanner.nextLine().trim();
+        if (nama.isEmpty()) {
+            System.out.println("\nNama tidak boleh kosong!");
+            return;
+        }
+
+        String hari = "";
+        while (true) {
+            System.out.print("Hari Main Tetap : ");
+            hari = scanner.nextLine().trim();
+            if (hari.equalsIgnoreCase("Senin") || hari.equalsIgnoreCase("Selasa") ||
+                hari.equalsIgnoreCase("Rabu") || hari.equalsIgnoreCase("Kamis") ||
+                hari.equalsIgnoreCase("Jumat") || hari.equalsIgnoreCase("Sabtu") ||
+                hari.equalsIgnoreCase("Minggu")) {
+                hari = hari.substring(0, 1).toUpperCase() + hari.substring(1).toLowerCase();
+                break;
+            }
+            System.out.println("[ERROR] Input hari tidak valid! Harap masukkan nama hari yang benar (Senin - Minggu).");
+        }
+
         System.out.print("Jam Main Tetap  : ");
         int jam = inputInt();
 
@@ -392,14 +443,34 @@ public class SistemGOR {
             return;
         }
 
+        // ==========================================================
+        // BUG FIX 1: CEK BENTROK JADWAL TETAP LANGSUNG KE BUKU INDUK MEMBER
+        // ==========================================================
         ArrayList<Integer> lapanganTersedia = new ArrayList<>();
-        for (Lapangan lap : daftarLapangan) {
-            
-            if (lap.isTersediaKhususMember(hari, jam, 3)) lapanganTersedia.add(lap.getNomor());
+        for (int i = 1; i <= 8; i++) {
+            lapanganTersedia.add(i); // Masukkan semua lapangan 1-8 dulu
         }
 
+        // Coret lapangan yang sudah dipakai member lain di hari dan jam yang tabrakan
+        for (Member existing : databaseMember) {
+            if (existing.getHariTetap().equalsIgnoreCase(hari)) {
+                int start1 = jam;
+                int end1 = jam + 3;
+                int start2 = existing.getJamMulai();
+                int end2 = existing.getJamSelesai();
+                
+                // Jika jamnya beririsan, hapus nomor lapangannya dari daftar tersedia
+                if ((start1 >= start2 && start1 < end2) || 
+                    (end1 > start2 && end1 <= end2) || 
+                    (start1 <= start2 && end1 >= end2)) {
+                    lapanganTersedia.remove(Integer.valueOf(existing.getNomorLapangan()));
+                }
+            }
+        }
+        // ==========================================================
+
         if (lapanganTersedia.isEmpty()) {
-            System.out.println("\n[GAGAL] Lapangan penuh di jam tersebut.");
+            System.out.println("\n[GAGAL] Lapangan penuh di jam tersebut untuk hari " + hari + ".");
             return;
         }
 
@@ -413,31 +484,40 @@ public class SistemGOR {
             memberStore.save(databaseMember);
             System.out.println("\n[INFO] Member " + m.getIdMember() + " Berhasil Terdaftar!");
 
-            // FITUR: OPSI LANGSUNG MAIN HARI INI
-            System.out.print("\nApakah member ingin langsung menggunakan 1 sesi hari ini? (Y/N): ");
-            String pakaiSekarang = scanner.nextLine().trim();
-            
-            if (pakaiSekarang.equalsIgnoreCase("Y")) {
-                Lapangan lapTerpilih = daftarLapangan.get(noLap - 1);
-                int jamSekarang = LocalTime.now().getHour();
+            // ==========================================================
+            // BUG FIX 2: MUNCULKAN PERTANYAAN "MAIN HARI INI" HANYA JIKA HARINYA SAMA
+            // ==========================================================
+            if (hari.equalsIgnoreCase(getHariIni())) {
+                System.out.print("\nApakah member ingin langsung menggunakan 1 sesi hari ini? (Y/N): ");
+                String pakaiSekarang = scanner.nextLine().trim();
                 
-                if (jam < jamSekarang) {
-                    System.out.println("[GAGAL] Waktu sudah lewat! Tidak bisa main sekarang karena sudah jam " + jamSekarang + ".00 WIB.");
-                } 
-                
-                else if (lapTerpilih.isTersedia(getHariIni(), jam, 3)) { 
-                    m.gunakanSesi();
-                    lapTerpilih.tambahJadwal(m);
-                    memberCheckedInHariIni.add(m.getIdMember());
+                if (pakaiSekarang.equalsIgnoreCase("Y")) {
+                    Lapangan lapTerpilih = daftarLapangan.get(noLap - 1);
+                    int jamSekarang = LocalTime.now().getHour();
+                    String tglSekarang = new SimpleDateFormat("dd-MM-yyyy").format(new Date());
                     
-                    memberStore.save(databaseMember);
-                    jadwalStore.saveJadwal(daftarLapangan); 
-                    
-                    System.out.println("[SUKSES] Sesi hari ini (" + getHariIni() + ") digunakan! Sisa sesi: " + m.getSisaSesi());
-                } else {
-                    System.out.println("[GAGAL] Lapangan " + noLap + " sedang dipakai orang lain hari ini. Namun, Jadwal Tetap Anda dipastikan AMAN untuk hari " + hari + ".");
+                    if (jam < jamSekarang) {
+                        System.out.println("[GAGAL] Waktu sudah lewat! Tidak bisa main sekarang karena sudah jam " + jamSekarang + ".00 WIB.");
+                    } 
+                    else if (lapTerpilih.isTersedia(tglSekarang, jam, 3)) { 
+                        m.gunakanSesi();
+                        
+                        Member sesiHariIni = new Member(m.getNama(), m.getIdMember(), tglSekarang, jam, noLap);
+                        lapTerpilih.tambahJadwal(sesiHariIni);
+                        
+                        memberCheckedInHariIni.add(m.getIdMember());
+                        memberStore.save(databaseMember);
+                        jadwalStore.saveJadwal(daftarLapangan); 
+                        
+                        System.out.println("[SUKSES] Sesi hari ini (" + tglSekarang + ") digunakan! Sisa sesi: " + m.getSisaSesi());
+                    } else {
+                        System.out.println("[GAGAL] Lapangan " + noLap + " sedang dipakai orang lain hari ini. Jadwal Tetap Anda AMAN untuk minggu depan.");
+                    }
                 }
             }
+            // ==========================================================
+        } else {
+            System.out.println("\n[ERROR] Nomor lapangan tidak valid!");
         }
     }
 
@@ -452,7 +532,6 @@ public class SistemGOR {
             return;
         }
 
-        // FITUR: SESI FLEKSIBEL
         boolean isJadwalTetap = m.getHariTetap().equalsIgnoreCase(getHariIni());
         if (!isJadwalTetap) {
             System.out.println("\n[INFO] Anda check-in di luar jadwal tetap (" + m.getHariTetap() + "). Sesi fleksibel akan digunakan.");
@@ -468,16 +547,26 @@ public class SistemGOR {
         }
 
         Lapangan lapMember = daftarLapangan.get(m.getNomorLapangan() - 1);
-        if (!lapMember.isTersedia(getHariIni(), m.getJamMulai(), m.getLamaMain())) {
-            System.out.println("\n[WARNING] Lapangan sedang dipakai. Harap lapor Admin.");
-            return;
+        
+        // ==========================================================
+        // BUG FIX 2: UBAH MENJADI FORMAT TANGGAL UNTUK CEK BENTROK KASIR
+        // ==========================================================
+        String tglSekarang = new SimpleDateFormat("dd-MM-yyyy").format(new Date());
+        if (!lapMember.isTersedia(tglSekarang, m.getJamMulai(), m.getLamaMain())) {
+            System.out.println("\n[WARNING] Lapangan sedang dipakai hari ini pada jam tersebut. Check-in ditolak!");
+            return; // Menghentikan program agar tidak menimpa jadwal orang lain
         }
+        // ==========================================================
 
         m.gunakanSesi();
         memberStore.save(databaseMember);
-        lapMember.tambahJadwal(m);
+        
+        // Masukkan objek bayangan dengan format tanggal hari ini
+        Member sesiCheckIn = new Member(m.getNama(), m.getIdMember(), tglSekarang, m.getJamMulai(), m.getNomorLapangan());
+        lapMember.tambahJadwal(sesiCheckIn);
+        
         memberCheckedInHariIni.add(m.getIdMember());
-        jadwalStore.saveJadwal(daftarLapangan); // AUTO SAVE JADWAL
+        jadwalStore.saveJadwal(daftarLapangan); 
 
         System.out.println("\n[INFO] Check-in berhasil!");
         System.out.println("[INFO] Sisa sesi main Anda bulan ini: " + m.getSisaSesi() + " Sesi.");

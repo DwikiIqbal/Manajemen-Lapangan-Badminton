@@ -246,10 +246,17 @@ public class SistemGOR {
 
         System.out.print("Lama Sewa (Jam)       : ");
         int lama = inputInt();
+        
+        int maxLama = JAM_TUTUP - JAM_BUKA; // 22 - 7 = 15 jam maksimal
         if (lama <= 0) {
             System.out.println("\nTRANSAKSI DITOLAK! Lama sewa harus lebih dari 0 jam.");
             return;
+        } else if (lama > maxLama) {
+            System.out.println("\nTRANSAKSI DITOLAK! Lama sewa tidak masuk akal.");
+            System.out.println("Maksimal sewa dalam sehari adalah " + maxLama + " jam (07.00 - 22.00 WIB).");
+            return;
         }
+        // ==========================================================
 
         System.out.print("Jenis (1. Booking / 2. Datang Langsung): ");
         int jenis = inputInt();

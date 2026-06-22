@@ -1,4 +1,2 @@
-1,dqwfq,22-05-2026,Biasa,11,3,false
-1,dqwfq,29-01-2027,Biasa,12,2,true
-2,wvdqq,22-05-2026,Biasa,10,3,false
-3,wesds,22-05-2026,Biasa,9,3,false
+1,dwiki,21-09-2026,Biasa,8,3,true
+2,dfafaf,22-06-2026,Member,13,3,false

@@ -41,6 +41,10 @@ public class Transaksi {
         return totalBayar;
     }
 
+    public String getKeterangan() {
+        return keterangan;
+    }
+
     public void tampilkanStruk() {
         System.out.println("\n+===================================================+");
         System.out.println("|           STRUK TRANSAKSI GOR SILMA               |");

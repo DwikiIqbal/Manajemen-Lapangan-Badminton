@@ -945,7 +945,8 @@ public class SistemGOR {
 
             System.out.print("\nPilih nomor (0 = Kembali): ");
             int idx = inputInt();
-            if (idx <= 0 || idx > bookingBelumLunas.size()) continue;
+            if (idx == 0) { diPelunasan = false; continue; }
+            if (idx < 0 || idx > bookingBelumLunas.size()) continue;
 
             Object[] dipilih = bookingBelumLunas.get(idx - 1);
             String nama = (String) dipilih[0];
